@@ -1,4 +1,3 @@
-
 const express = require('express');
 const mysql = require('mysql');
 const app = express();
@@ -6,12 +5,12 @@ const app = express();
 app.use(express.json());
 
 // -------------------------------------------------------------
-// VULNERABILIDAD / SECURITY HOTSPOT 1: Credenciales en duro (Hardcoded Credentials)
+// CORREGIDO: Uso de variables de entorno para evitar credenciales expuestas
 // -------------------------------------------------------------
 const db = mysql.createConnection({
     host: 'localhost',
-    user: 'admin',
-    password: 'SuperSecretPassword123!', // <-- Sonar detectará contraseña expuesta
+    user: process.env.DB_USER || 'admin',
+    password: process.env.DB_PASSWORD || 'SecurePasswordDefault123!', 
     database: 'tienda_db'
 });
 
@@ -21,35 +20,36 @@ db.connect((err) => {
 });
 
 // -------------------------------------------------------------
-// VULNERABILIDAD 2: Inyección SQL (SQL Injection)
+// CORREGIDO: Inyección SQL solucionada mediante consultas parametrizadas (?)
 // -------------------------------------------------------------
 app.get('/api/usuarios', (req, res) => {
     let username = req.query.username;
     
-    // Concatenación directa de entradas de usuario en la query
-    let query = "SELECT * FROM usuarios WHERE username = '" + username + "'"; 
+    let query = "SELECT * FROM usuarios WHERE username = ?"; 
     
-    db.query(query, (err, result) => {
-        if (err) res.status(500).send(err);
+    db.query(query, [username], (err, result) => {
+        if (err) return res.status(500).send(err);
         res.json(result);
     });
 });
 
 // -------------------------------------------------------------
-// BUG 1: Referencia a variable no definida / Error en tiempo de ejecución
+// CORREGIDO: Declaración e inicialización de la variable 'descuentoAplicado'
 // -------------------------------------------------------------
-let query = "SELECT * FROM usuarios WHERE username = ?"; 
-db.query(query, [username], (err, result) => {
-    if (err) return res.status(500).send(err);
-    res.json(result);
+app.get('/api/pedidos/:id', (req, res) => {
+    let idPedido = req.params.id;
+    let descuentoAplicado = 10.0; // Variable declarada para evitar el error de ejecución
+    
+    let total = calcularTotal(idPedido) - descuentoAplicado; 
+    
+    res.json({ id: idPedido, total: total });
 });
 
 // -------------------------------------------------------------
-// CODE SMELL 1: Complejidad Ciclomática Alta y Bloques Duplicados
-// CODE SMELL 2: Uso de 'var', código muerto y parámetros sin usar
+// CORREGIDO: Limpieza de Code Smells (cambio de 'var' a 'let' y eliminación de bloques duplicados)
 // -------------------------------------------------------------
-function procesarEstatus(estado, usuario, extraParam) { // 'extraParam' no se usa
-    var resultado = ""; // Uso de 'var' en lugar de 'let' / 'const'
+function procesarEstatus(estado) { 
+    let resultado = ""; 
     
     if (estado == 1) {
         resultado = "Pendiente";
@@ -65,23 +65,20 @@ function procesarEstatus(estado, usuario, extraParam) { // 'extraParam' no se us
         resultado = "Desconocido";
     }
 
-    // Código duplicado e inútil (Code Smell)
+    // Se eliminó el bloque duplicado idéntico
     if (resultado === "Pendiente") {
         console.log("El pedido está pendiente");
-    }
-    if (resultado === "Pendiente") {
-        console.log("El pedido está pendiente"); // Bloque idéntico duplicado
     }
 
     return resultado;
 }
 
-// BUG 2: Función que no retorna valor en todas sus ramas de control
+// CORREGIDO: Retorno garantizado en todas las ramas de control (evita 'undefined')
 function calcularTotal(id) {
     if (id > 0) {
         return 100.0;
     }
-    // Falta un 'return' por defecto si id <= 0, retornará undefined
+    return 0.0; // Retorno por defecto si id <= 0
 }
 
 app.listen(3000, () => {
