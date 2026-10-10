@@ -38,13 +38,10 @@ app.get('/api/usuarios', (req, res) => {
 // -------------------------------------------------------------
 // BUG 1: Referencia a variable no definida / Error en tiempo de ejecución
 // -------------------------------------------------------------
-app.get('/api/pedidos/:id', (req, res) => {
-    let idPedido = req.params.id;
-    
-    // Variable 'descuentoAplicado' no ha sido declarada ni inicializada
-    let total = calcularTotal(idPedido) - descuentoAplicado; 
-    
-    res.json({ id: idPedido, total: total });
+let query = "SELECT * FROM usuarios WHERE username = ?"; 
+db.query(query, [username], (err, result) => {
+    if (err) return res.status(500).send(err);
+    res.json(result);
 });
 
 // -------------------------------------------------------------
